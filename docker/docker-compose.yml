@@ -1,0 +1,51 @@
+
+services:
+  postgres:
+    image: postgres:17.5-alpine3.22
+    container_name: postgres_bigecommerce
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq_bigecommerce
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest	
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq	  
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping && rabbitmqctl await_startup >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 15  
+
+  bigecommerce-api:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.Producer.api
+    container_name: api_bigecommerce
+    environment:
+      ASPNETCORE_URLS: "http://+:5100"
+    ports:
+      - 5100:5100
+    depends_on:
+      postgres:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+
+volumes:
+  postgres_data:
+  rabbitmq_data:  
